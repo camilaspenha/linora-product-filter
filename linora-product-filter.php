@@ -193,3 +193,37 @@ function linora_product_filter_enqueue_scripts() {
     );
 }
 add_action( 'wp_enqueue_scripts', 'linora_product_filter_enqueue_scripts' );
+
+/**
+ * Aplica os filtros da URL na query principal do WooCommerce
+ * Força comportamento AND entre os filtros
+ */
+add_action('pre_get_posts', function($q) {
+
+    if ( is_admin() || ! $q->is_main_query() ) {
+        return;
+    }
+
+    // Só aplica na loja, categorias e busca
+    if ( ! ( is_shop() || is_product_category() || is_search() || is_post_type_archive('product') ) ) {
+        return;
+    }
+
+    if ( ! function_exists('linora_pf_get_active_filters') || ! function_exists('linora_pf_build_tax_query') ) {
+        return;
+    }
+
+    $filters = linora_pf_get_active_filters();
+
+    if ( empty($filters) ) {
+        return;
+    }
+
+    $tax_query = linora_pf_build_tax_query($filters);
+
+    if ( empty($tax_query) ) {
+        return;
+    }
+
+    $q->set('tax_query', $tax_query);
+});
