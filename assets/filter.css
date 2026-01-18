@@ -1,0 +1,144 @@
+/* ============================
+   LINORA PRODUCT FILTER
+============================ */
+
+
+/* Grupo de filtros */
+.linora-filter-group {
+  margin-bottom: 24px;
+}
+
+.linora-filter-group > strong {
+  display: block;
+  margin-bottom: 10px;
+  color: #232323;
+  font-family: "Josefin Sans", Sans-serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+  letter-spacing: -0.5px;
+}
+
+/* Itens de filtro */
+.linora-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  color: #54595F;
+}
+
+.linora-filter-item input {
+  cursor: pointer;
+}
+
+/* Contador */
+.linora-filter-count {
+  font-size: 12px;
+  color: #999;
+}
+
+/* Categoria ativa */
+.linora-filter-item input:checked + span,
+.linora-filter-item input:checked {
+  font-weight: 600;
+}
+
+/* ============================
+   PREÇO (INPUTS MIN / MAX)
+============================ */
+
+.linora-filter-price .linora-price-values {
+  font-size: 13px;
+  margin-bottom: 8px;
+  color: #444;
+}
+
+.linora-filter-price .linora-price-inputs {
+  display: flex;
+  gap: 10px;
+}
+
+.linora-filter-price input[type="number"] {
+  width: 100%;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  padding: 0 10px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.linora-filter-price input[type="number"]::placeholder {
+  color: #aaa;
+}
+
+/* Remove setinhas no Chrome, Edge, Safari */
+.linora-filter-price input[type=number]::-webkit-inner-spin-button,
+.linora-filter-price input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Remove setinhas no Firefox */
+.linora-filter-price input[type=number] {
+  -moz-appearance: textfield;
+}
+
+
+/* ============================
+   SELECT / ORDERBY
+============================ */
+
+.linora-product-filter select {
+  width: 100%;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  padding: 0 10px;
+  font-size: 14px;
+}
+
+/* ============================
+   BOTÕES
+============================ */
+
+.linora-product-filter button[type="submit"] {
+  width: 100%;
+  height: 42px;
+  border-radius: 10px;
+  border: none;  
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #D8A289;
+  color: #F7F5F0;
+  font-family: "Poppins", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.linora-product-filter button[type="submit"]:hover {
+  background: #232323;
+  color: #F7F5F0;
+}
+
+/* Limpar filtros */
+#linora-clear-filters {
+  display: block;
+  text-align: center;
+  margin-top: 10px;
+  font-size: 13px;
+  color: #888!important;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+#linora-clear-filters:hover {
+  color: #D8A289!important;
+  text-decoration: underline;
+}

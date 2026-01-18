@@ -1,0 +1,195 @@
+<?php
+/*
+Plugin Name: Linora Product Filter
+Description: A simple product filter plugin for Linora WooCommerce store.
+Version: 1.0
+Author: Linora
+*/
+
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+/**
+ * Retorna a URL atual removendo APENAS filtros de taxonomia
+ * Mantém busca (?s=), orderby, etc
+ */
+function linora_pf_get_clear_filters_url() {
+
+    // Garante que temos essas vars
+    if ( ! isset($_SERVER['HTTP_HOST'], $_SERVER['REQUEST_URI']) ) {
+        return home_url('/');
+    }
+
+    $scheme = is_ssl() ? 'https://' : 'http://';
+    $host   = $_SERVER['HTTP_HOST'];
+    $uri    = $_SERVER['REQUEST_URI'];
+
+    $url = $scheme . $host . $uri;
+
+    // Separa path e query
+    $parts = explode('?', $url, 2);
+
+    $base  = $parts[0];
+    $query = [];
+
+    if ( isset($parts[1]) ) {
+        parse_str($parts[1], $query);
+    }
+
+    // Remove apenas parâmetros que são taxonomias
+    foreach ($query as $key => $value) {
+        // taxonomy_exists pode não estar disponível muito cedo em alguns loads
+        if ( function_exists('taxonomy_exists') && taxonomy_exists($key) ) {
+            unset($query[$key]);
+        }
+    }
+
+    // Reconstrói a URL
+    if ( ! empty($query) ) {
+        return $base . '?' . http_build_query($query);
+    }
+
+    return $base;
+}
+
+/**
+ * Lê filtros ativos da URL:
+ * ?product_cat=slug1,slug2&pa_material=slug3
+ */
+function linora_pf_get_active_filters() {
+    $filters = [];
+
+    if ( empty($_GET) ) {
+        return $filters;
+    }
+
+    foreach ($_GET as $key => $value) {
+        if ( ! empty($value) && function_exists('taxonomy_exists') && taxonomy_exists($key) ) {
+            $slugs = array_filter(array_map('sanitize_title', explode(',', (string) $value)));
+            if (!empty($slugs)) {
+                $filters[$key] = $slugs;
+            }
+        }
+    }
+
+    return $filters;
+}
+
+/**
+ * Monta tax_query a partir dos filtros ativos
+ */
+function linora_pf_build_tax_query($filters) {
+    $tax_query = [];
+
+    if ( empty($filters) || ! is_array($filters) ) {
+        return $tax_query;
+    }
+
+    foreach ($filters as $tax => $terms) {
+        if ( empty($terms) ) continue;
+
+        $tax_query[] = [
+            'taxonomy' => $tax,
+            'field'    => 'slug',
+            'terms'    => $terms,
+            'operator' => 'AND',
+        ];
+    }
+
+    if ( count($tax_query) > 1 ) {
+        $tax_query['relation'] = 'AND';
+    }
+
+    return $tax_query;
+}
+
+/**
+ * Conta quantos produtos existem se um termo for aplicado
+ */
+function linora_pf_count_for_term($taxonomy, $term_slug) {
+
+    // Se WooCommerce não estiver ativo, não tenta nada
+    if ( ! class_exists('WP_Query') ) {
+        return 0;
+    }
+
+    $active = linora_pf_get_active_filters();
+
+    // Simula clique nesse termo
+    $current = $active[$taxonomy] ?? [];
+
+    if (!in_array($term_slug, $current, true)) {
+        $current[] = $term_slug;
+    }
+
+    $active[$taxonomy] = $current;
+
+    $tax_query = linora_pf_build_tax_query($active);
+
+    $args = [
+        'post_type'      => 'product',
+        'post_status'    => 'publish',
+        'posts_per_page' => 1, // só precisamos do total
+    ];
+
+    if ( ! empty($tax_query) ) {
+        $args['tax_query'] = $tax_query;
+    }
+
+    // Mantém busca
+    if ( get_query_var('s') ) {
+        $args['s'] = get_query_var('s');
+    }
+
+    $q = new WP_Query($args);
+
+    if ( is_wp_error($q) ) {
+        return 0;
+    }
+
+    return (int) $q->found_posts;
+}
+
+/**
+ * Shortcode principal
+ * Uso:
+ * [linora_product_filter taxonomy="product_cat"]
+ * [linora_product_filter taxonomy="pa_material"]
+ */
+function linora_product_filter_shortcode( $atts ) {
+
+    $atts = shortcode_atts( array(
+        'taxonomy' => 'product_cat',
+        'title'    => '',
+    ), $atts, 'linora_product_filter' );
+
+    // Disponibiliza $atts para o template
+    $linora_pf_atts = $atts;
+
+    ob_start();
+
+    $template = plugin_dir_path( __FILE__ ) . 'templates/filter-template.php';
+
+    if ( file_exists($template) ) {
+        include $template;
+    } else {
+        echo '<!-- Linora Product Filter: template não encontrado -->';
+    }
+
+    return ob_get_clean();
+}
+add_shortcode( 'linora_product_filter', 'linora_product_filter_shortcode' );
+
+/**
+ * Enfileira CSS
+ */
+function linora_product_filter_enqueue_scripts() {
+    wp_enqueue_style(
+        'linora-product-filter-style',
+        plugin_dir_url( __FILE__ ) . 'css/linora-product-filter.css',
+        [],
+        '1.0'
+    );
+}
+add_action( 'wp_enqueue_scripts', 'linora_product_filter_enqueue_scripts' );

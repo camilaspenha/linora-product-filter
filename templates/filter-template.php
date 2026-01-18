@@ -1,0 +1,127 @@
+<?php
+if ( ! defined('ABSPATH') ) exit;
+
+// Garante que temos os atributos
+if ( ! isset($linora_pf_atts) || ! is_array($linora_pf_atts) ) {
+    return;
+}
+
+// Recebe atributos do shortcode
+$taxonomy = $linora_pf_atts['taxonomy'] ?? 'product_cat';
+$title    = $linora_pf_atts['title'] ?? '';
+
+// Verifica se a taxonomia existe
+if ( ! function_exists('taxonomy_exists') || ! taxonomy_exists($taxonomy) ) {
+    return;
+}
+
+// Pega termos normalmente
+$terms = get_terms([
+    'taxonomy'   => $taxonomy,
+    'hide_empty' => true,
+]);
+
+if ( empty($terms) || is_wp_error($terms) ) {
+    return;
+}
+
+// Pega filtros ativos
+$active = function_exists('linora_pf_get_active_filters')
+    ? linora_pf_get_active_filters()
+    : [];
+
+// Verifica se existe qualquer filtro ativo (para mostrar botão limpar)
+$has_any_filter = false;
+if ( ! empty($active) ) {
+    foreach ($active as $tax => $vals) {
+        if (!empty($vals)) {
+            $has_any_filter = true;
+            break;
+        }
+    }
+}
+
+echo '<div class="linora-product-filter">';
+
+// Botão limpar filtros (usa a função nova e segura)
+if ( $has_any_filter && function_exists('linora_pf_get_clear_filters_url') ) {
+    echo '<a class="linora-clear-filters" href="' . esc_url( linora_pf_get_clear_filters_url() ) . '">🧹 Limpar filtros</a>';
+}
+
+// Título
+if ( ! empty($title) ) {
+    echo '<h4>' . esc_html($title) . '</h4>';
+}
+
+echo '<ul>';
+
+foreach ($terms as $term) {
+
+    if ( ! isset($term->slug) ) continue;
+
+    $active_slugs = $active[$taxonomy] ?? [];
+    if ( ! is_array($active_slugs) ) {
+        $active_slugs = [];
+    }
+
+    $is_active = in_array($term->slug, $active_slugs, true);
+
+    // Conta produtos se aplicar esse termo
+    if ( function_exists('linora_pf_count_for_term') ) {
+        $count = linora_pf_count_for_term($taxonomy, $term->slug);
+    } else {
+        $count = 0;
+    }
+
+    if ($count === 0) {
+        continue;
+    }
+
+    // Monta nova query preservando outros filtros
+    $query = $_GET;
+    if ( ! is_array($query) ) {
+        $query = [];
+    }
+
+    if ($is_active) {
+        // Remove
+        $new = array_diff($active_slugs, [$term->slug]);
+    } else {
+        // Adiciona
+        $new = array_unique(array_merge($active_slugs, [$term->slug]));
+    }
+
+    if (!empty($new)) {
+        $query[$taxonomy] = implode(',', $new);
+    } else {
+        unset($query[$taxonomy]);
+    }
+
+    // Monta URL final baseado na URL atual real (sem quebrar busca nem subpasta)
+    if ( isset($_SERVER['HTTP_HOST'], $_SERVER['REQUEST_URI']) ) {
+        $scheme = is_ssl() ? 'https://' : 'http://';
+        $host   = $_SERVER['HTTP_HOST'];
+        $uri    = $_SERVER['REQUEST_URI'];
+
+        $current_url = $scheme . $host . $uri;
+        $base = strtok($current_url, '?');
+    } else {
+        $base = home_url('/');
+    }
+
+    if (!empty($query)) {
+        $url = $base . '?' . http_build_query($query);
+    } else {
+        $url = $base;
+    }
+
+    echo '<li>';
+    echo '<label style="cursor:pointer;">';
+    echo '<input type="checkbox" ' . checked($is_active, true, false) . ' onclick="window.location.href=\'' . esc_url($url) . '\'" />';
+    echo ' ' . esc_html($term->name) . ' (' . intval($count) . ')';
+    echo '</label>';
+    echo '</li>';
+}
+
+echo '</ul>';
+echo '</div>';
