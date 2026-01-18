@@ -37,10 +37,8 @@ function linora_pf_get_clear_filters_url() {
         parse_str($parts[1], $query);
     }
 
-    // Remove apenas parâmetros que são taxonomias
     foreach ($query as $key => $value) {
-        // taxonomy_exists pode não estar disponível muito cedo em alguns loads
-        if ( function_exists('taxonomy_exists') && taxonomy_exists($key) ) {
+        if ( (function_exists('taxonomy_exists') && taxonomy_exists($key)) || $key === 'price_range' ) {
             unset($query[$key]);
         }
     }
@@ -133,6 +131,20 @@ function linora_pf_count_for_term($taxonomy, $term_slug) {
         'posts_per_page' => 1, // só precisamos do total
     ];
 
+    // Aplica filtro de preço ativo no contador
+    $range_key = linora_pf_get_active_price_range();
+    if ( $range_key ) {
+        $ranges = linora_pf_get_price_ranges();
+        $range  = $ranges[$range_key];
+
+        $args['meta_query'][] = [
+            'key'     => '_price',
+            'value'   => [$range['min'], $range['max']],
+            'compare' => 'BETWEEN',
+            'type'    => 'NUMERIC',
+        ];
+    }
+
     if ( ! empty($tax_query) ) {
         $args['tax_query'] = $tax_query;
     }
@@ -198,32 +210,81 @@ add_action( 'wp_enqueue_scripts', 'linora_product_filter_enqueue_scripts' );
  * Aplica os filtros da URL na query principal do WooCommerce
  * Força comportamento AND entre os filtros
  */
+/**
+ * Aplica os filtros da URL (taxonomias + preço) na query principal do WooCommerce
+ */
 add_action('pre_get_posts', function($q) {
 
     if ( is_admin() || ! $q->is_main_query() ) {
         return;
     }
 
-    // Só aplica na loja, categorias e busca
     if ( ! ( is_shop() || is_product_category() || is_search() || is_post_type_archive('product') ) ) {
         return;
     }
 
-    if ( ! function_exists('linora_pf_get_active_filters') || ! function_exists('linora_pf_build_tax_query') ) {
-        return;
+    // --- FILTROS DE TAXONOMIA ---
+    if ( function_exists('linora_pf_get_active_filters') && function_exists('linora_pf_build_tax_query') ) {
+        $filters = linora_pf_get_active_filters();
+
+        if ( ! empty($filters) ) {
+            $tax_query = linora_pf_build_tax_query($filters);
+            if ( ! empty($tax_query) ) {
+                $q->set('tax_query', $tax_query);
+            }
+        }
     }
 
-    $filters = linora_pf_get_active_filters();
+    // --- FILTRO DE PREÇO ---
+    if ( function_exists('linora_pf_get_active_price_range') ) {
 
-    if ( empty($filters) ) {
-        return;
+        $range_key = linora_pf_get_active_price_range();
+
+        if ( $range_key ) {
+            $ranges = linora_pf_get_price_ranges();
+            $range  = $ranges[$range_key];
+
+            $meta_query = (array) $q->get('meta_query');
+
+            $meta_query[] = [
+                'key'     => '_price',
+                'value'   => [$range['min'], $range['max']],
+                'compare' => 'BETWEEN',
+                'type'    => 'NUMERIC',
+            ];
+
+            $q->set('meta_query', $meta_query);
+        }
     }
-
-    $tax_query = linora_pf_build_tax_query($filters);
-
-    if ( empty($tax_query) ) {
-        return;
-    }
-
-    $q->set('tax_query', $tax_query);
 });
+
+
+/**
+ * Retorna as faixas de preço configuradas
+ */
+function linora_pf_get_price_ranges() {
+    return [
+        '0-100'   => ['min' => 0,   'max' => 100, 'label' => 'Até R$ 100'],
+        '101-200' => ['min' => 101, 'max' => 200, 'label' => 'R$ 101 – R$ 200'],
+        '201-300' => ['min' => 201, 'max' => 300, 'label' => 'R$ 201 – R$ 300'],
+        '301-400' => ['min' => 301, 'max' => 400, 'label' => 'R$ 301 – R$ 400'],
+    ];
+}
+
+/**
+ * Retorna a faixa de preço ativa ou null
+ */
+function linora_pf_get_active_price_range() {
+    if ( empty($_GET['price_range']) ) {
+        return null;
+    }
+
+    $ranges = linora_pf_get_price_ranges();
+    $key = sanitize_text_field($_GET['price_range']);
+
+    if ( isset($ranges[$key]) ) {
+        return $key;
+    }
+
+    return null;
+}

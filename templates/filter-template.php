@@ -31,7 +31,10 @@ $active = function_exists('linora_pf_get_active_filters')
     : [];
 
 // Verifica se existe qualquer filtro ativo (para mostrar botão limpar)
+// Verifica se existe qualquer filtro ativo (taxonomia OU preço)
 $has_any_filter = false;
+
+// 1) Taxonomias
 if ( ! empty($active) ) {
     foreach ($active as $tax => $vals) {
         if (!empty($vals)) {
@@ -41,11 +44,102 @@ if ( ! empty($active) ) {
     }
 }
 
+// 2) Preço
+if ( ! $has_any_filter && function_exists('linora_pf_get_active_price_range') ) {
+    if ( linora_pf_get_active_price_range() !== null ) {
+        $has_any_filter = true;
+    }
+}
+
+
 echo '<div class="linora-product-filter">';
 
 // Botão limpar filtros (usa a função nova e segura)
 if ( $has_any_filter && function_exists('linora_pf_get_clear_filters_url') ) {
     echo '<a class="linora-clear-filters" href="' . esc_url( linora_pf_get_clear_filters_url() ) . '">🧹 Limpar filtros</a>';
+}
+
+// ===============================
+// FILTRO DE PREÇO
+// ===============================
+if ( function_exists('linora_pf_get_price_ranges') && function_exists('linora_pf_get_active_price_range') ) {
+
+    $ranges = linora_pf_get_price_ranges();
+    $active_price = linora_pf_get_active_price_range();
+
+    echo '<div class="linora-price-filter">';
+    echo '<h4>Preço</h4>';
+    echo '<ul>';
+
+    foreach ($ranges as $key => $range) {
+
+        $is_active = ($active_price === $key);
+
+        // Conta produtos nessa faixa respeitando outros filtros
+        $args = [
+            'post_type'      => 'product',
+            'post_status'    => 'publish',
+            'posts_per_page' => 1,
+            'meta_query'     => [
+                [
+                    'key'     => '_price',
+                    'value'   => [$range['min'], $range['max']],
+                    'compare' => 'BETWEEN',
+                    'type'    => 'NUMERIC',
+                ]
+            ],
+        ];
+
+        // Aplica filtros de taxonomia no contador
+        if ( function_exists('linora_pf_get_active_filters') && function_exists('linora_pf_build_tax_query') ) {
+            $filters = linora_pf_get_active_filters();
+            if ( ! empty($filters) ) {
+                $tax_query = linora_pf_build_tax_query($filters);
+                if ( ! empty($tax_query) ) {
+                    $args['tax_query'] = $tax_query;
+                }
+            }
+        }
+
+        // Mantém busca
+        if ( get_query_var('s') ) {
+            $args['s'] = get_query_var('s');
+        }
+
+        $q = new WP_Query($args);
+        $count = (int) $q->found_posts;
+
+        if ($count === 0) continue;
+
+        // Monta URL
+        $query = $_GET;
+        if ( $is_active ) {
+            unset($query['price_range']);
+        } else {
+            $query['price_range'] = $key;
+        }
+
+        // Base URL atual
+        $scheme = is_ssl() ? 'https://' : 'http://';
+        $host   = $_SERVER['HTTP_HOST'];
+        $uri    = $_SERVER['REQUEST_URI'];
+        $base   = strtok($scheme . $host . $uri, '?');
+
+        $url = $base;
+        if (!empty($query)) {
+            $url .= '?' . http_build_query($query);
+        }
+
+        echo '<li>';
+        echo '<label style="cursor:pointer;">';
+        echo '<input type="radio" name="linora_price" ' . checked($is_active, true, false) . ' onclick="window.location.href=\'' . esc_url($url) . '\'" />';
+        echo ' ' . esc_html($range['label']) . ' (' . $count . ')';
+        echo '</label>';
+        echo '</li>';
+    }
+
+    echo '</ul>';
+    echo '</div>';
 }
 
 // Título
