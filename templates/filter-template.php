@@ -15,11 +15,23 @@ if ( ! function_exists('taxonomy_exists') || ! taxonomy_exists($taxonomy) ) {
     return;
 }
 
-// Pega termos normalmente
-$terms = get_terms([
+$include_slugs = [];
+
+if ( ! empty($linora_pf_atts['include']) ) {
+    $include_slugs = array_map('sanitize_title', explode(',', $linora_pf_atts['include']));
+}
+
+$args = [
     'taxonomy'   => $taxonomy,
     'hide_empty' => true,
-]);
+];
+
+if ( ! empty($include_slugs) ) {
+    $args['slug'] = $include_slugs;
+}
+
+$terms = get_terms($args);
+
 
 if ( empty($terms) || is_wp_error($terms) ) {
     return;

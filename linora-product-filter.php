@@ -174,6 +174,7 @@ function linora_product_filter_shortcode( $atts ) {
     $atts = shortcode_atts( array(
         'taxonomy' => 'product_cat',
         'title'    => '',
+        'include'  => '',
     ), $atts, 'linora_product_filter' );
 
     // Disponibiliza $atts para o template
