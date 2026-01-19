@@ -81,7 +81,7 @@ echo '<div class="linora-product-filter">';
 
 // Botão limpar filtros (usa a função nova e segura)
 if ( $has_any_filter && function_exists('linora_pf_get_clear_filters_url') ) {
-    echo '<a class="linora-clear-filters" href="' . esc_url( linora_pf_get_clear_filters_url() ) . '">🧹 Limpar filtros</a>';
+    echo '<a style="color: #d8a289; border: 1px solid; padding: 2px 4px; border-radius: 2px;" class="linora-clear-filters" href="' . esc_url( linora_pf_get_clear_filters_url() ) . '"> Limpar filtros</a>';
 }
 
 // ===============================
