@@ -32,6 +32,19 @@ if ( ! empty($include_slugs) ) {
 
 $terms = get_terms($args);
 
+// Garante a ordem definida no include
+if ( ! empty($include_slugs) && ! is_wp_error($terms) ) {
+    $ordered = [];
+    foreach ($include_slugs as $slug) {
+        foreach ($terms as $t) {
+            if ($t->slug === $slug) {
+                $ordered[] = $t;
+                break;
+            }
+        }
+    }
+    $terms = $ordered;
+}
 
 if ( empty($terms) || is_wp_error($terms) ) {
     return;
@@ -80,7 +93,7 @@ if ( function_exists('linora_pf_get_price_ranges') && function_exists('linora_pf
     $active_price = linora_pf_get_active_price_range();
 
     echo '<div class="linora-price-filter">';
-    echo '<h4>Preço</h4>';
+    echo '<h4>Filtrar por Preço</h4>';
     echo '<ul>';
 
     foreach ($ranges as $key => $range) {
